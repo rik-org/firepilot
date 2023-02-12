@@ -6,6 +6,8 @@ pub struct Config {
     #[serde(rename(serialize = "boot-source"))]
     pub boot_source: BootSource,
     pub drives: Vec<Drive>,
+    #[serde(rename(serialize = "network-interfaces"))]
+    pub network_interfaces: Vec<NetworkInterface>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -26,6 +28,14 @@ pub struct Drive {
     pub path_on_host: PathBuf,
     pub is_root_device: bool,
     pub is_read_only: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct NetworkInterface {
+    pub iface_id: String,
+    pub guest_mac: Option<String>,
+    /// Host level path for the guest network interface
+    pub host_dev_name: String,
 }
 
 #[derive(Debug, Clone)]

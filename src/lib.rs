@@ -169,7 +169,7 @@ impl Executable for Firecracker {
 mod tests {
     use std::path::PathBuf;
 
-    use crate::microvm::{BootSource, Config, Drive, MicroVM};
+    use crate::microvm::{BootSource, Config, Drive, MicroVM, NetworkInterface};
     use crate::{Firecracker, FirecrackerOptions};
 
     #[test]
@@ -214,6 +214,11 @@ mod tests {
                 ),
                 is_read_only: false,
                 is_root_device: true,
+            }],
+            network_interfaces: vec![NetworkInterface {
+                iface_id: "eth0".to_string(),
+                guest_mac: Some("AA:FC:00:00:00:01".to_string()),
+                host_dev_name: "tap0".to_string(),
             }],
         });
 
