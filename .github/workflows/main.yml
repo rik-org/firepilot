@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - "**.md"
+  pull_request:
+    types: [opened, reopened, synchronize]
+    paths-ignore:
+      - "**.md"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.ref != format('refs/heads/{0}', 'main') }}
+
+jobs:
+  quality:
+    name: Quality
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Package Check
+        uses: actions-rs/cargo@v1
+        with:
+          command: check
+
+      - name: Format Check
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check
+
+      - name: Linting Check
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+
+  build:
+    needs: [quality]
+    name: Build
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions-rs/cargo@v1
+        name: Build Debug
+        with:
+          use-cross: true
+          command: build
+          args: --bins --tests
+      - uses: actions-rs/cargo@v1
+        name: Test Debug
+        with:
+          use-cross: true
+          command: test
+
