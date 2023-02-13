@@ -37,6 +37,7 @@ autolabeler:
   - label: 'bug'
     title:
       - '/.*\[fix\].*/'
+      - '/.*\[ci\].*/'
   - label: 'patch'
     title:
       - '/.*\[fix\].*/'
@@ -49,6 +50,7 @@ autolabeler:
   - label: 'skip'
     title:
       - '/.*\[skip\].*/'
+      - '/.*\[docs\].*/'
   - label: 'major'
     title:
       - '/.*\[breaking\].*/'
