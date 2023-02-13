@@ -11,7 +11,7 @@ use log::debug;
 use microvm::MicroVM;
 
 mod exec;
-mod microvm;
+pub mod microvm;
 
 #[derive(Debug, thiserror::Error)]
 pub enum FirecrackerError {
