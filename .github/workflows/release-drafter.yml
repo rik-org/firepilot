@@ -1,0 +1,19 @@
+name: On Push - Release drafter
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - "**.md"
+
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+jobs:
+  update_release_draft:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: release-drafter/release-drafter@v5.22.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
