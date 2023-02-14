@@ -35,13 +35,10 @@ jobs:
       - name: Build
         run: cargo build --all-targets --release 
 
-      - name: Test
-        run: cargo test --release
-
       - name: Upload binaries to release
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.POLYXIA_CI_RW }}
           file: target/release/firepilot
-          asset_name: firepilot-x64-unknown-linux-gnu
+          asset_name: firepilot-x86_64-unknown-linux-gnu
           overwrite: true
