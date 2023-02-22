@@ -167,13 +167,30 @@ impl Executable for Firecracker {
 
 #[cfg(test)]
 mod tests {
+    use std::env::{join_paths, split_paths, var_os};
     use std::path::PathBuf;
+    use std::thread;
 
-    use crate::microvm::{BootSource, Config, Drive, MicroVM, NetworkInterface};
+    use crate::microvm::{BootSource, Config, Drive, MicroVM /* , NetworkInterface */};
     use crate::{Firecracker, FirecrackerOptions};
+
+    const TEST_FIRECRACKER_BIN_PATH: &str = "./fixtures/firecracker";
+    const TEST_FIXTURES_DIR_PATH: &str = "./fixtures/";
+    const TEST_VMLINUX_BIN_PATH: &str = "./fixtures/vmlinux.bin";
+    const TEST_ROOTFS_PATH: &str = "./fixtures/rootfs.ext4";
+    /* const TEST_GUEST_MAC: &str = "AA:FC:00:00:00:01";
+    const TEST_IFACE_ID: &str = "eth0";
+    const TEST_HOST_DEV_NAME: &str = "tap0"; */
 
     #[test]
     fn test_can_instantiate_firecracker_from_path() {
+        // add firecracker to $PATH
+        let path = var_os("PATH").unwrap_or_default();
+        let mut paths = split_paths(&path).collect::<Vec<_>>();
+        paths.push(PathBuf::from(TEST_FIXTURES_DIR_PATH));
+        let new_path = join_paths(paths).unwrap();
+        std::env::set_var("PATH", new_path);
+
         let firecracker = Firecracker::new(None);
         assert!(firecracker.is_ok())
     }
@@ -181,7 +198,7 @@ mod tests {
     #[test]
     fn test_can_instantiate_firecracker_from_custom_path() {
         let firecracker = Firecracker::new(Some(FirecrackerOptions {
-            command: Some(PathBuf::from("./fixtures/firecracker")),
+            command: Some(PathBuf::from(TEST_FIRECRACKER_BIN_PATH)),
             ..FirecrackerOptions::default()
         }));
         assert!(firecracker.is_ok())
@@ -198,30 +215,35 @@ mod tests {
 
     #[test]
     fn test_it_run_vm_from_config() {
+        // show pwd
+        println!("pwd: {}", std::env::current_dir().unwrap().display());
+        // list files in TEST_FIXTURES_DIR_PATH
+        for entry in std::fs::read_dir(TEST_FIXTURES_DIR_PATH).unwrap() {
+            let entry = entry.unwrap();
+            let path = entry.path();
+            println!("file: {}", path.display());
+        }
         let firecracker = Firecracker::new(None).unwrap();
         let vm = MicroVM::from(Config {
             boot_source: BootSource {
-                kernel_image_path: PathBuf::from(
-                    "/home/debian/developer/firepilot/fixtures/hello-vmlinux.bin",
-                ),
+                kernel_image_path: PathBuf::from(TEST_VMLINUX_BIN_PATH),
                 boot_args: None,
                 initrd_path: None,
             },
             drives: vec![Drive {
                 drive_id: "rootfs".to_string(),
-                path_on_host: PathBuf::from(
-                    "/home/debian/developer/firepilot/fixtures/rootfs.ext4",
-                ),
+                path_on_host: PathBuf::from(TEST_ROOTFS_PATH),
                 is_read_only: false,
                 is_root_device: true,
             }],
-            network_interfaces: vec![NetworkInterface {
-                iface_id: "eth0".to_string(),
-                guest_mac: Some("AA:FC:00:00:00:01".to_string()),
-                host_dev_name: "tap0".to_string(),
-            }],
+            network_interfaces: vec![/* NetworkInterface {
+                iface_id: TEST_IFACE_ID.to_string(),
+                guest_mac: Some(TEST_GUEST_MAC.to_string()),
+                host_dev_name: TEST_HOST_DEV_NAME.to_string(),
+            } */],
         });
-
-        firecracker.start(&vm).unwrap();
+        thread::spawn(move || {
+            firecracker.start(&vm).unwrap();
+        });
     }
 }

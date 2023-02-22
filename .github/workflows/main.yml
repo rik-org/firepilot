@@ -61,6 +61,26 @@ jobs:
           use-cross: true
           command: build
           args: --bins --tests
+      # setup firecracker binary for integration tests
+      - name: Setup Firecracker
+        run: |
+          mkdir -p fixtures
+          release_url="https://github.com/firecracker-microvm/firecracker/releases"
+          latest=$(basename $(curl -fsSLI -o /dev/null -w  %{url_effective} ${release_url}/latest))
+          arch=`uname -m`
+          curl -L ${release_url}/download/${latest}/firecracker-${latest}-${arch}.tgz \
+          | tar -xz
+          mv release-${latest}-$(uname -m)/firecracker-${latest}-$(uname -m) ./fixtures/firecracker
+      - name: Setup vmlinux.bin
+        run: |
+          curl https://s3.amazonaws.com/spec.ccfc.min/img/quickstart_guide/x86_64/kernels/vmlinux.bin -o ./fixtures/vmlinux.bin
+      - name: Setup vmlinux.bin
+        run: |
+          curl https://s3.amazonaws.com/spec.ccfc.min/img/quickstart_guide/x86_64/rootfs/bionic.rootfs.ext4 -o ./fixtures/rootfs.ext4
+          ls -lh ./fixtures
+          pwd
+          ls -hl
+          echo $PATH
       - uses: actions-rs/cargo@v1
         name: Test Debug
         with:
