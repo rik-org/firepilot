@@ -7,8 +7,11 @@ use std::{
 };
 
 use exec::{Args, Executable};
+use hyper::{Body, Client, Method, Request};
+use hyperlocal::{UnixClientExt, Uri};
 use log::debug;
 use microvm::MicroVM;
+use serde_json::json;
 
 mod exec;
 pub mod microvm;
@@ -25,6 +28,10 @@ pub enum FirecrackerError {
     Exec(std::io::Error),
     #[error("firecracker command has failed. stdout: {0:?}, stderr: {1:?}")]
     CommandFailed(String, String),
+    #[error("Failed to create a request: {0:?}")]
+    RequestBuilderFailed(hyper::http::Error),
+    #[error("Failed to execute request: {0:?}")]
+    RequestFailed(hyper::Error),
 }
 
 type Result<T, E = FirecrackerError> = std::result::Result<T, E>;
@@ -118,6 +125,26 @@ impl Firecracker {
             String::from("--config-file"),
             cfg_file,
         ])
+    }
+
+    pub async fn stop(&self, vm: &MicroVM) -> Result<()> {
+        let sock = self.vm_socket_path(&vm.id);
+        let url: Uri = Uri::new(sock, "/actions").into();
+
+        let client = Client::unix();
+        let req = Request::builder()
+            .method(Method::POST)
+            .uri(url)
+            .body(Body::from(
+                json!({ "action_type": "SendCtrlAltDel" }).to_string(),
+            ))
+            .map_err(FirecrackerError::RequestBuilderFailed)?;
+
+        client
+            .request(req)
+            .await
+            .map_err(FirecrackerError::RequestFailed)?;
+        Ok(())
     }
 
     // Compute a path to the socket corresponding to the given VM identifier inside
