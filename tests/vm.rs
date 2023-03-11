@@ -9,15 +9,18 @@ const TEST_ROOTFS_PATH: &str = "./fixtures/rootfs.ext4";
 
 #[test]
 fn test_it_run_vm_from_config() {
-    // show pwd
-    println!("pwd: {}", std::env::current_dir().unwrap().display());
-    // list files in TEST_FIXTURES_DIR_PATH
-    for entry in std::fs::read_dir(TEST_FIXTURES_DIR_PATH).unwrap() {
-        let entry = entry.unwrap();
-        let path = entry.path();
-        println!("file: {}", path.display());
-    }
-    let firecracker = Firecracker::new(FirecrackerOptions::default()).unwrap();
+    let fixture_path = PathBuf::from(TEST_FIXTURES_DIR_PATH);
+
+    assert!(
+        fixture_path.exists(),
+        "TEST_FIXTURES_DIR_PATH does not exist"
+    );
+    let options = FirecrackerOptions {
+        command: Some(fixture_path.join("firecracker")),
+        ..FirecrackerOptions::default()
+    };
+
+    let firecracker = Firecracker::new(options).unwrap();
     let vm = MicroVM::from(Config {
         boot_source: BootSource {
             kernel_image_path: PathBuf::from(TEST_VMLINUX_BIN_PATH),
