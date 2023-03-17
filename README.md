@@ -60,6 +60,8 @@ thread::spawn(move || {
 });
 ```
 
+Firepilot configure the microVM with a config file. See more documentation [here](./docs/firecracker-vmm-config.md).
+
 ## Developing
 
 ### Build
