@@ -12,7 +12,7 @@ Add the following to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-firepilot = { git = "https://github.com/polyxia-org/firepilot.git", branch = "main" }
+firepilot = { git = "https://github.com/rik-org/firepilot.git", branch = "main" }
 ```
 
 Download the Firecracker binary : https://github.com/firecracker-microvm/firecracker/releases/latest
@@ -75,4 +75,4 @@ cargo build
 
 ## License
 
-The Polyxia project belongs to Polytech Montpellier and is released under the MIT license. Please see the [LICENSE](LICENSE) file for more information.
+This project is released under the MIT license. Please see the [LICENSE](LICENSE) file for more information.
