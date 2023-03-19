@@ -42,8 +42,29 @@ jobs:
         with:
           command: clippy
 
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@v2
+      - shell: bash
+        name: Remove integration tests folder
+        run: |
+          echo "Delete tests folder in order to only run unit tests"
+          rm -rf tests
+
+      - name: Package Check
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+
   build:
-    needs: [quality]
+    needs: [quality, unit-tests]
     name: Build
     runs-on: ubuntu-22.04
     timeout-minutes: 10

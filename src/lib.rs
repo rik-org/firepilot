@@ -16,6 +16,8 @@ use serde_json::json;
 mod exec;
 pub mod microvm;
 
+const DEFAULT_WORKING_DIR: &str = "/tmp/firecracker";
+
 #[derive(Debug, thiserror::Error)]
 pub enum FirecrackerError {
     #[error("Unable to find the firecracker binary on host")]
@@ -36,63 +38,132 @@ pub enum FirecrackerError {
 
 type Result<T, E = FirecrackerError> = std::result::Result<T, E>;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct FirecrackerOptions {
-    /// Path to the `firecracker` binary on host.
-    /// If not set, the initialization will try to
-    /// retrieve it from the `$PATH`.
+    /// Path to the `firecracker` binary on host, you can provide one via other means
+    /// (see [Firecracker::new])
     pub command: Option<PathBuf>,
     /// Path to a directory where to store `firecracker` related files
     /// such as sockets, VM configuration etc.
     pub working_dir: Option<PathBuf>,
-}
-
-impl Default for FirecrackerOptions {
-    fn default() -> Self {
-        Self {
-            command: None,
-            working_dir: Some(PathBuf::from("/tmp/firecracker")),
-        }
-    }
+    /// If [`working_dir`](FirecrackerOptions) is provided, this flag will instruct to create the path to the working
+    /// directory if it doesn't exist.
+    pub create_working_dir: bool,
 }
 
 pub struct Firecracker {
     /// Path to the `firecracker` binary on host.
-    command: PathBuf,
+    binary_path: PathBuf,
     /// Path to the working directory for `firecracker`.
     working_dir: PathBuf,
 }
 
+impl Default for Firecracker {
+    /// Create a new firecracker interface, it will try to determine the binary location (you can customize
+    /// the location, see [Firecracker::new])
+    fn default() -> Self {
+        let binary =
+            Firecracker::determine_binary_location().expect("Unable to find firecracker binary");
+        let working_dir = PathBuf::from(DEFAULT_WORKING_DIR);
+        Firecracker::create_working_dir(&working_dir)
+            .expect("Unable to create a directory to store sockets");
+        Self {
+            binary_path: binary,
+            working_dir: working_dir,
+        }
+    }
+}
+
 impl Firecracker {
-    /// Instanciate a new `Firecracker` instance with the given options.
-    pub fn new(opts: Option<FirecrackerOptions>) -> Result<Self> {
-        let options = opts.unwrap_or_default();
+    /// Tries to determine if `firecracker` binary exists in the `$PATH` variable, if it does, it will
+    /// return the path to the binary.
+    fn find_binary_from_path() -> Option<PathBuf> {
+        var_os("PATH").and_then(|paths| {
+            split_paths(&paths)
+                .filter_map(|d| {
+                    let full_path = d.join("firecracker");
+                    if full_path.is_file() {
+                        Some(full_path)
+                    } else {
+                        None
+                    }
+                })
+                .next()
+        })
+    }
 
-        let command = options.command.or_else(|| {
-            // Check in `$PATH` for the firecracker binary location
-            var_os("PATH").and_then(|paths| {
-                split_paths(&paths)
-                    .filter_map(|d| {
-                        let full_path = d.join("firecracker");
-                        if full_path.is_file() {
-                            Some(full_path)
-                        } else {
-                            None
-                        }
-                    })
-                    .next()
-            })
-        });
+    /// Tries to determine if `firecracker` binary exists in the current working directory, if it does,
+    /// it will return the path to the binary.
+    fn find_binary_from_current_directory() -> Option<PathBuf> {
+        let full_path = PathBuf::from("./firecracker");
+        match full_path.is_file() {
+            true => Some(full_path),
+            false => None,
+        }
+    }
 
-        if command.is_none() || !command.clone().unwrap().exists() {
-            return Err(FirecrackerError::BinaryNotFound);
+    /// Tries to determine if variable `FIRECRACKER_LOCATION` exists, if it does, it will check if
+    /// firecracker binary exists, if it does, it will return the content of the variable.
+    fn find_binary_from_env_location() -> Option<PathBuf> {
+        if let Some(path) = var_os("FIRECRACKER_LOCATION") {
+            if PathBuf::from(&path).is_file() {
+                return Some(PathBuf::from(path));
+            }
+
+            log::warn!(
+                "FIRECRACKER_LOCATION is set but the file does not exist: {:?}",
+                path
+            );
+        }
+        None
+    }
+    /// Tries to determine `firecracker` binary location, in case it cannot determine any binary it
+    /// will panic
+    ///
+    /// It is based on multiple sources (top to bottom priority).
+    ///
+    /// - `FIRECRACKER_LOCATION` environment variable: direct path to the binary
+    /// - `$PATH` environment variable: search for the binary in the directories
+    /// - `firecracker` binary in the current working directory
+    pub fn determine_binary_location() -> Result<PathBuf> {
+        Self::find_binary_from_env_location()
+            .or_else(Self::find_binary_from_path)
+            .or_else(Self::find_binary_from_current_directory)
+            .map(|p| Ok(p))
+            .unwrap_or(Err(FirecrackerError::BinaryNotFound))
+    }
+
+    fn create_working_dir(working_dir: &PathBuf) -> Result<()> {
+        std::fs::create_dir_all(&working_dir).map_err(FirecrackerError::WorkingDirCreation)
+    }
+
+    /// Create a new firecracker interface, it will try to determine the binary location, but you can
+    /// provide a custom one through several options (upper take priority over lower):
+    ///
+    /// - `command` field in the `FirecrackerOptions` structure
+    /// - `FIRECRACKER_LOCATION` environment variable: direct path to the binary
+    /// - `$PATH` environment variable: search for the binary in the directories
+    /// - `firecracker` binary in the current working directory
+    ///
+    /// If you provided a custom path to the binary and the binary doesn't exist it will return
+    /// [FirecrackerError::BinaryNotFound].
+    ///
+    /// If you don't provide a directory to store `firecracker` related files, it will use the
+    /// default one ([DEFAULT_WORKING_DIR]).
+    pub fn new(options: FirecrackerOptions) -> Result<Self> {
+        println!("{:?}", options);
+        let binary_path = match options.command {
+            Some(path) => Ok(path),
+            None => Self::determine_binary_location(),
+        }?;
+        let working_dir = options.working_dir.unwrap_or_default();
+
+        if options.create_working_dir {
+            Self::create_working_dir(&working_dir)?;
         }
 
-        let working_dir = options.working_dir.unwrap();
-        std::fs::create_dir_all(&working_dir).map_err(FirecrackerError::WorkingDirCreation)?;
-
         Ok(Self {
-            command: command.unwrap(),
+            binary_path,
             working_dir,
         })
     }
@@ -167,9 +238,9 @@ impl Executable for Firecracker {
     fn exec(&self, args: &Vec<String>) -> Result<String> {
         let args = self.concat_args(args)?;
 
-        debug!("{} {}", self.command.display(), args.join(" "));
+        debug!("{} {}", self.binary_path.display(), args.join(" "));
 
-        let process = Command::new(&self.command)
+        let process = Command::new(&self.binary_path)
             .args(&args)
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
@@ -194,83 +265,58 @@ impl Executable for Firecracker {
 
 #[cfg(test)]
 mod tests {
-    use std::env::{join_paths, split_paths, var_os};
-    use std::path::PathBuf;
-    use std::thread;
+    use std::env::var_os;
+    use std::fs::File;
 
-    use crate::microvm::{BootSource, Config, Drive, MicroVM /* , NetworkInterface */};
+    use tempfile::tempdir;
+
     use crate::{Firecracker, FirecrackerOptions};
 
-    const TEST_FIRECRACKER_BIN_PATH: &str = "./fixtures/firecracker";
-    const TEST_FIXTURES_DIR_PATH: &str = "./fixtures/";
-    const TEST_VMLINUX_BIN_PATH: &str = "./fixtures/vmlinux.bin";
-    const TEST_ROOTFS_PATH: &str = "./fixtures/rootfs.ext4";
-    /* const TEST_GUEST_MAC: &str = "AA:FC:00:00:00:01";
-    const TEST_IFACE_ID: &str = "eth0";
-    const TEST_HOST_DEV_NAME: &str = "tap0"; */
-
     #[test]
-    fn test_can_instantiate_firecracker_from_path() {
-        // add firecracker to $PATH
-        let path = var_os("PATH").unwrap_or_default();
-        let mut paths = split_paths(&path).collect::<Vec<_>>();
-        paths.push(PathBuf::from(TEST_FIXTURES_DIR_PATH));
-        let new_path = join_paths(paths).unwrap();
-        std::env::set_var("PATH", new_path);
-
-        let firecracker = Firecracker::new(None);
-        assert!(firecracker.is_ok())
+    fn test_can_determine_binary_location_from_env() {
+        let dir = tempdir().expect("failed to create temporary directory");
+        let file_path = dir.path().join("firecracker");
+        let _file = File::create(file_path.clone()).expect("failed to create temporary file");
+        std::env::set_var("FIRECRACKER_LOCATION", file_path);
+        let result = Firecracker::determine_binary_location();
+        assert!(result.is_ok())
     }
 
     #[test]
-    fn test_can_instantiate_firecracker_from_custom_path() {
-        let firecracker = Firecracker::new(Some(FirecrackerOptions {
-            command: Some(PathBuf::from(TEST_FIRECRACKER_BIN_PATH)),
-            ..FirecrackerOptions::default()
-        }));
-        assert!(firecracker.is_ok())
+    fn test_cant_determine_binary_location_from_env() {
+        std::env::set_var("FIRECRACKER_LOCATION", "/tmp/invalid_path/firecracker");
+        let result = Firecracker::determine_binary_location();
+        assert!(result.is_err());
     }
 
     #[test]
-    fn test_cannot_instantiate_firecracker_if_binary_not_found() {
-        let firecracker = Firecracker::new(Some(FirecrackerOptions {
-            command: Some(PathBuf::from("/randomdir/firecracker")),
-            ..FirecrackerOptions::default()
-        }));
-        assert!(firecracker.is_err())
+    fn test_can_determine_binary_location_from_path() {
+        let dir = tempdir().expect("failed to create temporary directory");
+        let file_path = dir.path().join("firecracker");
+        let _file = File::create(file_path.clone()).expect("failed to create temporary file");
+
+        std::env::set_var("PATH", file_path.parent().unwrap());
+        println!("{:?}", var_os("PATH"));
+        let result = Firecracker::determine_binary_location();
+        assert!(result.is_ok())
     }
 
     #[test]
-    fn test_it_run_vm_from_config() {
-        // show pwd
-        println!("pwd: {}", std::env::current_dir().unwrap().display());
-        // list files in TEST_FIXTURES_DIR_PATH
-        for entry in std::fs::read_dir(TEST_FIXTURES_DIR_PATH).unwrap() {
-            let entry = entry.unwrap();
-            let path = entry.path();
-            println!("file: {}", path.display());
-        }
-        let firecracker = Firecracker::new(None).unwrap();
-        let vm = MicroVM::from(Config {
-            boot_source: BootSource {
-                kernel_image_path: PathBuf::from(TEST_VMLINUX_BIN_PATH),
-                boot_args: None,
-                initrd_path: None,
-            },
-            drives: vec![Drive {
-                drive_id: "rootfs".to_string(),
-                path_on_host: PathBuf::from(TEST_ROOTFS_PATH),
-                is_read_only: false,
-                is_root_device: true,
-            }],
-            network_interfaces: vec![/* NetworkInterface {
-                iface_id: TEST_IFACE_ID.to_string(),
-                guest_mac: Some(TEST_GUEST_MAC.to_string()),
-                host_dev_name: TEST_HOST_DEV_NAME.to_string(),
-            } */],
+    fn test_cant_determine_binary_location_from_path() {
+        std::env::set_var("PATH", "/tmp/invalid_path");
+        let result = Firecracker::determine_binary_location();
+        assert!(result.is_err())
+    }
+
+    #[test]
+    fn test_can_determine_binary_location_from_option() {
+        let dir = tempdir().expect("failed to create temporary directory");
+        let file_path = dir.path().join("firecracker");
+        let _file = File::create(file_path.clone()).expect("failed to create temporary file");
+        let result = Firecracker::new(FirecrackerOptions {
+            command: Some(file_path),
+            ..Default::default()
         });
-        thread::spawn(move || {
-            firecracker.start(&vm).unwrap();
-        });
+        assert!(result.is_ok())
     }
 }
