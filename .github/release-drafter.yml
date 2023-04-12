@@ -25,7 +25,7 @@ categories:
       - 'bugfix'
       - 'bug'
   - title: '🧰 Maintenance'
-    label: 
+    labels:
       - 'chore'
       - 'ci'
       - 'docs'
@@ -36,21 +36,21 @@ exclude-labels:
 autolabeler:
   - label: 'bug'
     title:
-      - '/.*\[fix\].*/'
-      - '/.*\[ci\].*/'
+      - '/.*(\[fix\]|fix\(.*\)).*/'
+      - '/.*(\[ci\]|ci\(.*\)).*/'
   - label: 'patch'
     title:
-      - '/.*\[fix\].*/'
+      - '/.*(\[fix\]|fix\(.*\):).*/'
   - label: 'enhancement'
     title:
-      - '/.*\[feat\].*/'
+      - '/.*(\[feat\]|feat\(.*\)).*/'
   - label: 'minor'
     title:
-      - '/.*\[feat\].*/'
+      - '/.*(\[feat\]|feat\(.*\)).*/'
   - label: 'skip'
     title:
       - '/.*\[skip\].*/'
-      - '/.*\[docs\].*/'
+      - '/.*(\[docs\]|docs\(.*\):).*/'
   - label: 'major'
     title:
       - '/.*\[breaking\].*/'
