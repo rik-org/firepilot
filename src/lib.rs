@@ -13,8 +13,19 @@ use log::debug;
 use microvm::MicroVM;
 use serde_json::json;
 
+#[macro_use]
+extern crate serde_derive;
+
+extern crate serde;
+extern crate serde_json;
+extern crate url;
+
 mod exec;
 pub mod microvm;
+pub mod models;
+pub mod builder;
+pub mod executor;
+pub mod machine;
 
 const DEFAULT_WORKING_DIR: &str = "/tmp/firecracker";
 
