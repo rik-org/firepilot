@@ -1,7 +1,9 @@
 use std::path::PathBuf;
 
-use crate::{builder::{Builder, BuilderError, assert_not_none}, models::Drive};
-
+use crate::{
+    builder::{assert_not_none, Builder, BuilderError},
+    models::Drive,
+};
 
 pub struct DriveBuilder {
     pub drive_id: Option<String>,
@@ -48,7 +50,12 @@ impl Builder<Drive> for DriveBuilder {
         Ok(Drive {
             drive_id: self.drive_id.unwrap(),
             // FIXME: This is a hack to convert PathBuf to String
-            path_on_host: self.path_on_host.unwrap().into_os_string().into_string().unwrap(),
+            path_on_host: self
+                .path_on_host
+                .unwrap()
+                .into_os_string()
+                .into_string()
+                .unwrap(),
             is_root_device: self.is_root_device,
             is_read_only: self.is_read_only,
             cache_type: None,
@@ -61,7 +68,7 @@ impl Builder<Drive> for DriveBuilder {
 
 #[cfg(test)]
 mod tests {
-    use crate::builder::{BuilderError, assert_not_none, Builder};
+    use crate::builder::{Builder, BuilderError};
 
     #[test]
     fn drive_full() {
@@ -80,7 +87,10 @@ mod tests {
             .with_drive_id("rootfs".to_string())
             .try_build();
         assert_eq!(drive.is_err(), true);
-        assert_eq!(drive.err().unwrap(), BuilderError::MissingRequiredField(stringify!(self.path_on_host).to_string()));
+        assert_eq!(
+            drive.err().unwrap(),
+            BuilderError::MissingRequiredField(stringify!(self.path_on_host).to_string())
+        );
     }
 
     #[test]
@@ -89,6 +99,9 @@ mod tests {
             .with_path_on_host("/path/to/rootfs".into())
             .try_build();
         assert_eq!(drive.is_err(), true);
-        assert_eq!(drive.err().unwrap(), BuilderError::MissingRequiredField(stringify!(self.drive_id).to_string()));
+        assert_eq!(
+            drive.err().unwrap(),
+            BuilderError::MissingRequiredField(stringify!(self.drive_id).to_string())
+        );
     }
 }

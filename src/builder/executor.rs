@@ -1,6 +1,9 @@
 use std::path::PathBuf;
 
-use crate::{builder::{Builder, BuilderError}, executor::{FirecrackerExecutor, Executor}};
+use crate::{
+    builder::{Builder, BuilderError},
+    executor::{Executor, FirecrackerExecutor},
+};
 
 use super::assert_not_none;
 
@@ -44,9 +47,9 @@ impl Builder<Executor> for FirecrackerExecutorBuilder {
 mod tests {
     #[test]
     fn test_firecracker_executor_builder() {
-        use std::path::PathBuf;
-        use crate::builder::Builder;
         use super::FirecrackerExecutorBuilder;
+        use crate::builder::Builder;
+        use std::path::PathBuf;
 
         FirecrackerExecutorBuilder::new()
             .with_chroot("/".to_string())
@@ -57,9 +60,9 @@ mod tests {
 
     #[test]
     fn test_firecracker_executor_required_fields() {
-        use std::path::PathBuf;
-        use crate::builder::Builder;
         use super::FirecrackerExecutorBuilder;
+        use crate::builder::Builder;
+        use std::path::PathBuf;
 
         let result = FirecrackerExecutorBuilder::new()
             .with_chroot("/".to_string())

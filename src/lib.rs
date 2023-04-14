@@ -20,12 +20,12 @@ extern crate serde;
 extern crate serde_json;
 extern crate url;
 
-mod exec;
-pub mod microvm;
-pub mod models;
 pub mod builder;
+mod exec;
 pub mod executor;
 pub mod machine;
+pub mod microvm;
+pub mod models;
 
 const DEFAULT_WORKING_DIR: &str = "/tmp/firecracker";
 
