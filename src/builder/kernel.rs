@@ -1,4 +1,7 @@
-use crate::{builder::{Builder, BuilderError}, models::BootSource};
+use crate::{
+    builder::{Builder, BuilderError},
+    models::BootSource,
+};
 
 use super::assert_not_none;
 
