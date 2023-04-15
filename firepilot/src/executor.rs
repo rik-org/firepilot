@@ -1,4 +1,23 @@
-use std::path::PathBuf;
+//! # Low-Level Implementation of the microVM
+//!
+//! The executor is the component that will run the virtual machine. It is responsible for
+//! starting the microVM and managing the socket that will be used to communicate with it.
+//!
+//! ## Design
+//!
+//! Executor implementation is a low level component which is not meant to be
+//! used directly, except if you intend to have your wrapper around it. It gives
+//! control on the full lifecycle of a microVM and actions that can be performed
+//! on it. It is meant to give full control, compared to [Machine] which gives a
+//! high-level API.
+//!
+//! ## Implementation
+//!
+//! You can either run firecracker directly with the binary by using
+//! [FirecrackerExecutor] or you could decide to be safer and run with a
+//! JailerExecutor. Be aware that the JailerExecutor is not yet implemented, but
+//! we welcome contributions.
+use std::{path::PathBuf, process::Stdio};
 
 use tokio::process::{Child, Command};
 
@@ -6,10 +25,15 @@ use hyper::{Body, Client, Method, Request};
 use hyperlocal::{UnixClientExt, UnixConnector, Uri};
 
 use crate::machine::FirepilotError;
-use crate::models::{BootSource, Drive, NetworkInterface};
+use firecracker_models::models::{BootSource, Drive, NetworkInterface};
 
+/// Interface to determine how to execute commands on the socket and where to do it
 pub trait Execute {
+    /// Define where all the drives, rootfs, kernel and socket will be created
     fn chroot(&self) -> PathBuf;
+    /// Execute a command onto the binary behind the executor
+    ///
+    /// It is only used to spawn the executor process, not to send commands to it
     fn spawn_binary_child(&self, args: &Vec<String>) -> Result<Child, ExecuteError>;
 }
 
@@ -47,6 +71,7 @@ impl From<ExecuteError> for FirepilotError {
     }
 }
 
+/// Action available on the VM
 #[derive(Debug, Serialize)]
 #[serde(tag = "action_type", rename_all = "PascalCase")]
 pub enum Action {
@@ -54,14 +79,29 @@ pub enum Action {
     SendCtrlAltDel,
 }
 
+/// Contains an instance of the microVM, this low-level implementation hold the
+/// process and is able to talk to the socket in order to configure the microVM.
+#[derive(Debug)]
 pub struct Executor {
+    /// Optional executor, if none is provided, it will crash as no other
+    /// executor is available
+    ///
+    /// It is not a [Box<dyn Execute>] because we didn't want to use Boxes
+    /// everywhere. We could have been using an enum, but due to the small
+    /// number of implementation we judged it was not worth it.
     firecracker: Option<FirecrackerExecutor>,
+    /// Holds the process of the executor when it is running
     socket_process: Option<Child>,
+    /// A RPC client to talk to the socket
     client: Client<UnixConnector>,
+    /// ID given when creating the executor, it doesn't need to be unique, but
+    /// we really encourage to make it unique and it might collapse if you run
+    /// two VM with the same ID at the same time (file system issues).
     id: String,
 }
 
 impl Executor {
+    /// Create a new Executor with no implementation, and with id "default"
     pub fn new() -> Executor {
         Executor {
             firecracker: None,
@@ -138,11 +178,11 @@ impl Executor {
         Ok(())
     }
 
+    /// Sends a specific [Action] to the microVM
     pub async fn send_action(&self, action: Action) -> Result<(), ExecuteError> {
         let json = serde_json::to_string(&action).map_err(ExecuteError::Serialize)?;
 
         let url: hyper::Uri = Uri::new(self.chroot().join("firecracker.socket"), "/actions").into();
-        println!("Sending request to {}, boy: {}", &url, &json);
         self.send_request(url, json).await?;
         Ok(())
     }
@@ -153,7 +193,7 @@ impl Executor {
     }
 
     /// Tries to spawn the executor process, the workspace for the machine should
-    /// already exist ([Executor::create_workspace] should have been called)
+    /// already exist ([create_workspace] should have been called)
     pub fn run_socket(&mut self) -> Result<(), ExecuteError> {
         let executor = self.executor();
         let sock = self.chroot().join("firecracker.socket");
@@ -232,8 +272,14 @@ impl Executor {
     }
 }
 
+/// Implementation of Executor for Firecracker, it will spawn the microVM using
+/// firecracker binary
+#[derive(Debug)]
 pub struct FirecrackerExecutor {
+    /// Path to a folder where all files related to the microVM will be stored,
+    /// it is used by higher level abstractions to store drives, kernel, etc...
     pub chroot: String,
+    /// Path to the firecracker binary
     pub exec_binary: PathBuf,
 }
 
@@ -245,6 +291,10 @@ impl Execute for FirecrackerExecutor {
     fn spawn_binary_child(&self, args: &Vec<String>) -> Result<Child, ExecuteError> {
         let command = Command::new(&self.exec_binary)
             .args(args)
+            // FIXME: Implement logging
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
             .spawn()
             .map_err(|e| ExecuteError::CommandExecution(e.to_string()))?;
         Ok(command)
@@ -254,7 +304,7 @@ impl Execute for FirecrackerExecutor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     use std::path::PathBuf;
 
     #[tokio::test]
@@ -265,7 +315,7 @@ mod tests {
         };
         let mut machine = Executor::new_with_firecracker(executor);
         machine.create_workspace().unwrap();
-        machine.run_socket().unwrap();
+        machine.run_socket().expect("Failed to run socket");
 
         // expect socket to exist
         let socket = machine.chroot().join("firecracker.socket");
@@ -296,6 +346,6 @@ mod tests {
             id: "default".to_string(),
             client: Client::unix(),
         };
-        machine.create_workspace();
+        machine.create_workspace().unwrap();
     }
 }

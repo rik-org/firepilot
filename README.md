@@ -1,78 +1,42 @@
-# Firepilot - Pilot Firecracker binary through Rust
+# Firepilot 
 
-Firepilot is a **rust crate** to pilot Firecracker. It is a wrapper around Firecracker binary and provides a Rust SDK for interact with the Firecracker API.
+`firepilot` is a rust library to interact with [firecracker](firecracker), it
+can be used to configure and run firecracker micro VMs. It relies on
+auto-generated models provided by the [project's OpenAPI](firecracker-openapi),
+those models are available in the dependency `firecracker-models`.
 
-There are some Firecracker features that are not yet supported. If you need one of them, please open an issue.
+There are some Firecracker features that are not yet supported. If you need one
+of them, please open an issue.
 
-This crate is inspired by [firecracker-go-sdk](https://github.com/firecracker-microvm/firecracker-go-sdk) a Go SDK for Firecracker.
+This crate is inspired by
+[firecracker-go-sdk](https://github.com/firecracker-microvm/firecracker-go-sdk)
+a Go SDK for Firecracker.
 
-## Getting started
+## Design
 
-Add the following to your `Cargo.toml`:
+Our main goal is to provide an opinionated way to interact and manage
+firecracker microVMs, for our bigger project [rik](rik). However, we wanted to
+make this library available for everyone, with an unopinionated way to manage
+VMs. To do so, this crate contains two way to create VMs:
 
-```toml
-[dependencies]
-firepilot = { git = "https://github.com/rik-org/firepilot.git", branch = "main" }
-```
+- Using high-level [Machine] abstraction: through simple methods, you can create
+  and control the lifecyle of a VM. This is the recommended way to use this
+  crate.
+- Using low-level [Executor]: you can fully control and manage each step of the
+  VM lifecycle. This is useful if you want to have more control over the VM
+  configuration and not satisfied with the current high-level abstraction.
 
-Download the Firecracker binary : https://github.com/firecracker-microvm/firecracker/releases/latest
+## Examples
 
-The following examples show how to use the crate:
+You can find full examples in the [`examples`][firepilot-examples] directory.
+Examples are auto-sufficent, they will download a sample rootfs and kernel
+provided by Firecracker, but you must have firecracker installed on your system.
 
-### Run a VM
+### MSRV
 
-`rootfs.ext4` example : https://s3.amazonaws.com/spec.ccfc.min/img/quickstart_guide/x86_64/rootfs/bionic.rootfs.ext4
+The minimum supported rust version is `1.60.0`.
 
-`vmlinux.bin` example : https://s3.amazonaws.com/spec.ccfc.min/img/quickstart_guide/x86_64/kernels/vmlinux.bin
-
-```rust
-use firepilot::microvm::{BootSource, Config, Drive, MicroVM};
-use firepilot::Firecracker;
-
-let FIRECRACKER_PATH = PathBuf::from("/YOUR_PATH_HERE/firecracker");
-let KERNEL_IMAGE_PATH = PathBuf::from("/YOUR_PATH_HERE/vmlinux.bin");
-let ROOTFS_PATH = PathBuf::from("/YOUR_PATH_HERE/rootfs.ext4");
-
-let firecracker = Firecracker::new(Some(firepilot::FirecrackerOptions {
-                    command: Some(FIRECRACKER_PATH),
-                    ..Default::default()
-                }))
-                .unwrap();
-
-let vm = MicroVM::from(Config {
-    boot_source: BootSource {
-        kernel_image_path: KERNEL_IMAGE_PATH,
-        boot_args: None,
-        initrd_path: None,
-    },
-    drives: vec![Drive {
-        drive_id: "rootfs".to_string(),
-        path_on_host: ROOTFS_PATH,
-        is_read_only: false,
-        is_root_device: true,
-    }],
-    network_interfaces: vec![],
-});
-
-// Start the VM in a new thread because it is blocking
-thread::spawn(move || {
-    firecracker.start(&vm).unwrap();
-});
-```
-
-Firepilot configure the microVM with a config file. See more documentation [here](./docs/firecracker-vmm-config.md).
-
-## Developing
-
-### Build
-
-It requires to have `cargo 1.66` or higher and `protobuf-compiler` installed.
-
-```
-apt update -y && apt install -y protobuf-compiler
-cargo build
-```
-
-## License
-
-This project is released under the MIT license. Please see the [LICENSE](LICENSE) file for more information.
+[firecracker]: https://github.com/firecracker-microvm/firecracker/
+[firecracker-openapi]: https://github.com/firecracker-microvm/firecracker/blob/main/src/api_server/swagger/firecracker.yaml
+[rik]: https://github.com/rik-org/rik
+[firepilot-examples]: https://github.com/rik-org/firepilot/tree/main/examples

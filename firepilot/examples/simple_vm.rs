@@ -104,7 +104,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     machine.create(config).await.unwrap();
 
     println!("Booting the VM");
-    machine.start().await.unwrap();
+    machine.start().await.expect("Could not start VM");
     println!("Waiting a few seconds, the VM is started at this point");
     sleep(Duration::from_secs(5)).await;
     machine.stop().await.unwrap();

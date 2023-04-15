@@ -1,7 +1,8 @@
-use crate::models::{NetworkInterface, RateLimiter};
+use firecracker_models::models::{NetworkInterface, RateLimiter};
 
 use super::{assert_not_none, Builder, BuilderError};
 
+#[derive(Debug)]
 pub struct NetworkInterfaceBuilder {
     guest_mac: Option<String>,
     host_dev_name: Option<String>,
