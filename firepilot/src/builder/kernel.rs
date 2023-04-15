@@ -1,10 +1,9 @@
-use crate::{
-    builder::{Builder, BuilderError},
-    models::BootSource,
-};
+use crate::builder::{Builder, BuilderError};
+use firecracker_models::models::BootSource;
 
 use super::assert_not_none;
 
+#[derive(Debug)]
 pub struct KernelBuilder {
     pub boot_args: Option<String>,
     pub initrd_path: Option<String>,

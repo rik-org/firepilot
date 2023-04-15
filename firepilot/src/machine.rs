@@ -1,3 +1,31 @@
+//! # High-level implementation to manage microVM (recommended)
+//!
+//! This module uses [Executor] to manage the microVM, but it gives an
+//! opinionated way to create a microVM, this way hides the complexity and save
+//! you time in order to start and configure your microVM as quickly as possible.
+//!
+//! ## Example
+//!
+//! ```ignore
+//! use tokio::time::{sleep, Duration};
+//! use firepilot::builder::Configuration;
+//! use firepilot::machine::Machine;
+//! // This configuration is not enough to run a microVM
+//! let config = Configuration::new("simple_vm".to_string());
+//!
+//! let mut machine = Machine::new();
+//! // Apply configuration to the machine
+//! machine.create(config).await.unwrap();
+//!     
+//! println!("Booting the VM");
+//! machine.start().await.unwrap();
+//! println!("Waiting a few seconds, the VM is started at this point");
+//! sleep(Duration::from_secs(5)).await;
+//! machine.stop().await.unwrap();
+//! println!("Shutting down the VM");
+//! machine.kill().await.unwrap();
+//! ```
+
 use std::{fs::copy, path::Path};
 
 use crate::{
@@ -7,12 +35,18 @@ use crate::{
 
 #[derive(Debug)]
 pub enum FirepilotError {
+    /// Mostly problems related to directories error or unavailable files
     Setup(String),
+    /// Related to communication with the socket to configure the microVM which failed
     Configure(String),
+    /// The process didn't start properly or an error occurred while trying to run it
     Execute(String),
 }
 
+/// An instance of microVM which can be created and deployed easily
+#[derive(Debug)]
 pub struct Machine {
+    /// Current microVM executor with applied configuration
     executor: Executor,
 }
 
@@ -23,7 +57,7 @@ impl Machine {
         }
     }
 
-    pub fn copy<P, Q>(from: P, to: Q) -> Result<(), FirepilotError>
+    fn copy<P, Q>(from: P, to: Q) -> Result<(), FirepilotError>
     where
         P: AsRef<Path>,
         Q: AsRef<Path>,
@@ -40,6 +74,15 @@ impl Machine {
         Ok(())
     }
 
+    /// Setup an initial workspace to be working and to have the microVM
+    /// starting as expected, it is going through a few steps. The workspace is
+    /// configured when you are creating the executor object.
+    ///
+    /// 1. Setup the machine workspace from the executor
+    /// 2. Copy drives into the machine workspace (rootfs included)
+    /// 3. Copy the kernel in the system workspace
+    /// 4. Spawn the socket process
+    /// 5. Configure the socket with given informations from the configuration
     pub async fn create(&mut self, mut config: Configuration) -> Result<(), FirepilotError> {
         self.executor = config.executor.unwrap();
         // Step 1. Setup the machine workspace from the executor
