@@ -11,6 +11,7 @@ use std::{
     path::{Path, PathBuf},
 };
 use tokio::time::{sleep, Duration};
+use tracing::info;
 
 /// This example shows how to create a simple VM with a single vCPU, 1024 MiB of RAM, a root drive and a network interface.
 ///
@@ -71,6 +72,7 @@ async fn fetch_url(url: hyper::Uri, target_path: PathBuf) {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    tracing_subscriber::fmt::init();
     let path = Path::new("examples/resources");
     let kernel_path = path.join("kernel.bin");
     let rootfs_path = path.join("rootfs.ext4");
@@ -103,12 +105,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut machine = Machine::new();
     machine.create(config).await.unwrap();
 
-    println!("Booting the VM");
+    info!("Boot micro vm");
     machine.start().await.expect("Could not start VM");
-    println!("Waiting a few seconds, the VM is started at this point");
+    info!("Waiting a few seconds, the VM is started at this point");
     sleep(Duration::from_secs(5)).await;
     machine.stop().await.unwrap();
-    println!("Shutting down the VM");
+    info!("Shutting down the VM");
     machine.kill().await.unwrap();
 
     Ok(())

@@ -76,7 +76,7 @@ jobs:
   build:
     needs: [quality, unit-tests]
     name: Build
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-20.04
     timeout-minutes: 10
 
     steps:
@@ -91,34 +91,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y pkg-config libssl-dev openssl
       - uses: actions-rs/cargo@v1
-        name: Build Debug
+        name: Build Release
         with:
-          use-cross: true
           command: build
-          args: --bins --tests
-      # setup firecracker binary for integration tests
-      - name: Setup Firecracker
-        run: |
-          mkdir -p fixtures
-          release_url="https://github.com/firecracker-microvm/firecracker/releases"
-          latest=$(basename $(curl -fsSLI -o /dev/null -w  %{url_effective} ${release_url}/latest))
-          arch=`uname -m`
-          curl -L ${release_url}/download/${latest}/firecracker-${latest}-${arch}.tgz \
-          | tar -xz
-          sudo mv release-${latest}-$(uname -m)/firecracker-${latest}-$(uname -m) /usr/bin/firecracker
-      - name: Setup vmlinux.bin
-        run: |
-          curl https://s3.amazonaws.com/spec.ccfc.min/img/quickstart_guide/x86_64/kernels/vmlinux.bin -o ./fixtures/vmlinux.bin
-      - name: Setup vmlinux.bin
-        run: |
-          curl https://s3.amazonaws.com/spec.ccfc.min/img/quickstart_guide/x86_64/rootfs/bionic.rootfs.ext4 -o ./fixtures/rootfs.ext4
-          ls -lh ./fixtures
-          pwd
-          ls -hl
-          echo $PATH
-      - uses: actions-rs/cargo@v1
-        name: Test Debug
-        with:
-          use-cross: true
-          command: test
-
+          args: --tests --examples --release
