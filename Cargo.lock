@@ -135,22 +135,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "firecracker_models"
-version = "1.3.0"
-dependencies = [
- "serde",
- "serde_derive",
- "serde_json",
- "url",
- "uuid",
-]
-
-[[package]]
 name = "firepilot"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "doc-comment",
- "firecracker_models",
+ "firepilot_models 1.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "hyper",
  "hyperlocal",
  "log",
@@ -165,6 +154,30 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
+ "url",
+ "uuid",
+]
+
+[[package]]
+name = "firepilot_models"
+version = "1.3.0"
+dependencies = [
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "url",
+ "uuid",
+]
+
+[[package]]
+name = "firepilot_models"
+version = "1.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3d31837f8c997263f1600fef39b579deb871538825b3dd13bbee95a539fe2658"
+dependencies = [
+ "serde",
+ "serde_derive",
+ "serde_json",
  "url",
  "uuid",
 ]

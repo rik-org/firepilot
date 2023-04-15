@@ -13,7 +13,7 @@
 //!   io::copy,
 //!   path::{Path, PathBuf},
 //! };
-//! use firecracker_models::models::{BootSource, Drive, NetworkInterface};
+//! use firepilot_models::models::{BootSource, Drive, NetworkInterface};
 //! use firepilot::builder::{Configuration, Builder};
 //! use firepilot::builder::{drive::DriveBuilder, kernel::KernelBuilder};
 //! use firepilot::builder::executor::FirecrackerExecutorBuilder;
@@ -51,7 +51,7 @@
 //! ```
 use crate::executor::Executor;
 
-use firecracker_models::models::{BootSource, Drive, NetworkInterface};
+use firepilot_models::models::{BootSource, Drive, NetworkInterface};
 
 pub mod drive;
 pub mod executor;

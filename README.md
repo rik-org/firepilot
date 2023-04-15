@@ -3,7 +3,7 @@
 `firepilot` is a rust library to interact with [firecracker](firecracker), it
 can be used to configure and run firecracker micro VMs. It relies on
 auto-generated models provided by the [project's OpenAPI](firecracker-openapi),
-those models are available in the dependency `firecracker-models`.
+those models are available in the dependency `firepilot_models`.
 
 There are some Firecracker features that are not yet supported. If you need one
 of them, please open an issue.

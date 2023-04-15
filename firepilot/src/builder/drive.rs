@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use crate::builder::{assert_not_none, Builder, BuilderError};
-use firecracker_models::models::Drive;
+use firepilot_models::models::Drive;
 
 #[derive(Debug)]
 pub struct DriveBuilder {

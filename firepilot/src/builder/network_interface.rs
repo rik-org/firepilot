@@ -1,4 +1,4 @@
-use firecracker_models::models::{NetworkInterface, RateLimiter};
+use firepilot_models::models::{NetworkInterface, RateLimiter};
 
 use super::{assert_not_none, Builder, BuilderError};
 

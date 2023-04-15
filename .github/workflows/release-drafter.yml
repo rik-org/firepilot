@@ -13,7 +13,31 @@ on:
 jobs:
   update_release_draft:
     runs-on: ubuntu-22.04
+    outputs:
+      version: ${{ steps.drafter.outputs.tag_name }}
     steps:
       - uses: release-drafter/release-drafter@v5.22.0
+        id: drafter
         env:
-          GITHUB_TOKEN: ${{ secrets.RIK_CI_RW }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  
+  bump_firepilot_version:
+    needs: [update_release_draft]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Bump version
+        run: |
+          sed -i -e 's/^version = .*/version = "${{ needs.update_release_draft.outputs.version }}"/' firepilot/Cargo.toml
+
+      - name: Commit changes
+        run: |
+          git config --local user.email "125324459+abrgBot@users.noreply.github.com"
+          git config --local user.name "abrgBot"
+          git add firepilot/Cargo.toml
+          git commit -m "[skip ci] Bump firepilot version to ${{ needs.update_release_draft.outputs.version }}"
+          git push
+

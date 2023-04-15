@@ -26,7 +26,7 @@ use hyperlocal::{UnixClientExt, UnixConnector, Uri};
 use tracing::{debug, error, info, instrument, trace};
 
 use crate::machine::FirepilotError;
-use firecracker_models::models::{BootSource, Drive, NetworkInterface};
+use firepilot_models::models::{BootSource, Drive, NetworkInterface};
 
 /// Interface to determine how to execute commands on the socket and where to do it
 pub trait Execute {
