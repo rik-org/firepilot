@@ -23,6 +23,7 @@ use tokio::process::{Child, Command};
 
 use hyper::{Body, Client, Method, Request};
 use hyperlocal::{UnixClientExt, UnixConnector, Uri};
+use tracing::{debug, error, info, instrument, trace};
 
 use crate::machine::FirepilotError;
 use firecracker_models::models::{BootSource, Drive, NetworkInterface};
@@ -138,21 +139,28 @@ impl Executor {
         }
     }
 
+    #[instrument(skip(self), fields(id = %self.id))]
     fn wait_healthy(&self) -> Result<(), ExecuteError> {
+        debug!("Waiting for socket to be healthy");
         let sock = self.chroot().join("firecracker.socket");
         let mut retries = 0;
         while retries < 10 {
             let res = std::fs::metadata(&sock);
             if res.is_ok() {
+                debug!("Socket is now healthy");
                 return Ok(());
             }
             retries += 1;
             std::thread::sleep(std::time::Duration::from_millis(50));
         }
+        debug!("Socket is not healthy");
         Err(ExecuteError::Unhealthy)
     }
 
+    #[instrument(skip_all, fields(id = %self.id))]
     async fn send_request(&self, url: hyper::Uri, body: String) -> Result<(), ExecuteError> {
+        debug!("Send request to socket: {}", url);
+        trace!("Sent body to socket [{}]: {}", url, body);
         let request = Request::builder()
             .method(Method::PUT)
             .uri(url.clone())
@@ -167,8 +175,19 @@ impl Executor {
             .await
             .map_err(|e| ExecuteError::Request(url.clone(), e.to_string()))?;
 
+        trace!("Response status: {:#?}", response.status());
         let status = response.status();
         if !status.is_success() {
+            error!("Request to socket failed [{}]: {:#?}", url, status);
+            // body stream to string
+            let body = hyper::body::to_bytes(response.into_body())
+                .await
+                .map_err(|e| ExecuteError::Request(url.clone(), e.to_string()))?;
+            error!(
+                "Request [{}] body: {}",
+                url,
+                String::from_utf8(body.to_vec()).unwrap()
+            );
             return Err(ExecuteError::CommandExecution(format!(
                 "Failed to send request to {}, status: {}",
                 url, status
@@ -179,7 +198,9 @@ impl Executor {
     }
 
     /// Sends a specific [Action] to the microVM
+    #[instrument(skip_all, fields(id = %self.id))]
     pub async fn send_action(&self, action: Action) -> Result<(), ExecuteError> {
+        debug!("Send action to socket: {:#?}", action);
         let json = serde_json::to_string(&action).map_err(ExecuteError::Serialize)?;
 
         let url: hyper::Uri = Uri::new(self.chroot().join("firecracker.socket"), "/actions").into();
@@ -194,7 +215,9 @@ impl Executor {
 
     /// Tries to spawn the executor process, the workspace for the machine should
     /// already exist ([create_workspace] should have been called)
+    #[instrument(skip(self), fields(id = %self.id))]
     pub fn run_socket(&mut self) -> Result<(), ExecuteError> {
+        info!("Running the socket");
         let executor = self.executor();
         let sock = self.chroot().join("firecracker.socket");
 
@@ -204,11 +227,14 @@ impl Executor {
         ])?;
         self.wait_healthy()?;
         self.socket_process = Some(child);
+        debug!("Socket is now running");
         Ok(())
     }
 
     /// Shutdown abruptly the socket process, if the VM was running it will stop it
+    #[instrument(skip(self), fields(id = %self.id))]
     pub async fn destroy_socket(&mut self) -> Result<(), ExecuteError> {
+        info!("Destroying the socket");
         let sock_path = self.chroot().join("firecracker.socket");
 
         let socket = self.socket_process.as_mut().ok_or_else(|| {
@@ -221,13 +247,16 @@ impl Executor {
             .await
             .map_err(|e| ExecuteError::Socket(e.to_string()))?;
         std::fs::remove_file(sock_path).map_err(|e| ExecuteError::Socket(e.to_string()))?;
-
+        debug!("Socket is now destroyed and the socket file doesn't exist anymore");
         self.socket_process = None;
         Ok(())
     }
 
     /// Apply the boot source configuration to the VM
+    #[instrument(skip_all, fields(id = %self.id))]
     pub async fn configure_boot_source(&self, boot_source: BootSource) -> Result<(), ExecuteError> {
+        debug!("Configure boot source");
+        trace!("Boot source: {:#?}", boot_source);
         let json = serde_json::to_string(&boot_source).map_err(ExecuteError::Serialize)?;
 
         let url: hyper::Uri =
@@ -237,8 +266,12 @@ impl Executor {
     }
 
     /// Apply all drives configuration on the VM
+    #[instrument(skip_all, fields(id = %self.id))]
     pub async fn configure_drives(&self, drives: Vec<Drive>) -> Result<(), ExecuteError> {
+        debug!("Configure drives");
         for drive in drives {
+            debug!("Configure drive {}", drive.drive_id);
+            trace!("Drive: {:#?}", drive);
             let json = serde_json::to_string(&drive).map_err(ExecuteError::Serialize)?;
 
             let path = format!("/drives/{}", drive.drive_id);
@@ -249,11 +282,15 @@ impl Executor {
     }
 
     /// Apply network configuration on the VM
+    #[instrument(skip_all, fields(id = %self.id))]
     pub async fn configure_network(
         &self,
         network_interfaces: Vec<NetworkInterface>,
     ) -> Result<(), ExecuteError> {
+        debug!("Configure network interfaces");
         for network_interface in network_interfaces {
+            debug!("Configure network interface {}", network_interface.iface_id);
+            trace!("Network interface: {:#?}", network_interface);
             let json =
                 serde_json::to_string(&network_interface).map_err(ExecuteError::Serialize)?;
 
@@ -265,7 +302,9 @@ impl Executor {
     }
 
     /// Create needed folders where the VM will be configured
+    #[instrument(skip(self), fields(id = %self.id))]
     pub fn create_workspace(&self) -> Result<(), ExecuteError> {
+        debug!("Creating workspace at {}", self.chroot().display());
         std::fs::create_dir_all(self.chroot())
             .map_err(|e| ExecuteError::WorkspaceCreation(e.to_string()))?;
         Ok(())

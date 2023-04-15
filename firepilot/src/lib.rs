@@ -10,11 +10,11 @@ extern crate serde;
 extern crate serde_json;
 extern crate url;
 
+pub mod builder;
+pub mod executor;
+pub mod machine;
+
 #[cfg(doctest)]
 mod doctests {
     doc_comment::doctest!("../../README.md");
 }
-
-pub mod builder;
-pub mod executor;
-pub mod machine;

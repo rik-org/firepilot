@@ -28,6 +28,8 @@
 
 use std::{fs::copy, path::Path};
 
+use tracing::{debug, info, instrument};
+
 use crate::{
     builder::Configuration,
     executor::{Action, Executor},
@@ -83,8 +85,15 @@ impl Machine {
     /// 3. Copy the kernel in the system workspace
     /// 4. Spawn the socket process
     /// 5. Configure the socket with given informations from the configuration
+    #[instrument(skip(self, config), fields(id = %config.vm_id))]
     pub async fn create(&mut self, mut config: Configuration) -> Result<(), FirepilotError> {
-        self.executor = config.executor.unwrap();
+        self.executor = match config.executor {
+            Some(executor) => Ok(executor),
+            None => Err(FirepilotError::Setup(
+                "No executor was provided in the configuration".to_string(),
+            )),
+        }?;
+
         // Step 1. Setup the machine workspace from the executor
         self.executor.create_workspace()?;
 
@@ -92,15 +101,23 @@ impl Machine {
         let kernel = config.kernel.unwrap();
         for drive in config.storage.iter_mut() {
             let new_drive_path = self.executor.chroot().join(&drive.drive_id);
+            info!("Copy drive {} in the workspace", drive.drive_id);
+            debug!(
+                "Drive from {:?} to {:?}",
+                drive.path_on_host, new_drive_path
+            );
             Machine::copy(&drive.path_on_host, &new_drive_path)?;
             drive.path_on_host = new_drive_path.into_os_string().into_string().unwrap();
         }
 
         // Step 4. Copy the kernel in the system workspace
-        Machine::copy(
-            kernel.kernel_image_path.clone(),
-            self.executor.chroot().join("vmlinux"),
-        )?;
+        let kernel_path = self.executor.chroot().join("vmlinux");
+        info!("Copy kernel in the workspace");
+        debug!(
+            "Kernel from {:?} to {:?}",
+            kernel.kernel_image_path, kernel_path
+        );
+        Machine::copy(kernel.kernel_image_path.clone(), kernel_path)?;
 
         if let Some(initrd) = kernel.initrd_path.clone() {
             Machine::copy(initrd, self.executor.chroot().join("initrd"))?;
@@ -110,6 +127,7 @@ impl Machine {
         self.executor.run_socket()?;
 
         // Step 6. Configure the socket with given informations from the configuration
+        info!("Configure microVM");
         self.executor.configure_drives(config.storage).await?;
         self.executor.configure_boot_source(kernel).await?;
         self.executor.configure_network(config.interfaces).await?;
