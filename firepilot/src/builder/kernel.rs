@@ -1,5 +1,5 @@
 use crate::builder::{Builder, BuilderError};
-use firecracker_models::models::BootSource;
+use firepilot_models::models::BootSource;
 
 use super::assert_not_none;
 
