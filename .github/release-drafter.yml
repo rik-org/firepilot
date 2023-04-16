@@ -53,7 +53,7 @@ autolabeler:
       - '/.*(\[docs\]|docs\(.*\):).*/'
   - label: 'major'
     title:
-      - '/.*\[breaking\].*/'
+      - '/.*(\[breaking\]|breaking:).*/'
 
 replacers:
   - search: '/\[feat\]/g'
