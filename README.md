@@ -39,4 +39,4 @@ The minimum supported rust version is `1.60.0`.
 [firecracker]: https://github.com/firecracker-microvm/firecracker/
 [firecracker-openapi]: https://github.com/firecracker-microvm/firecracker/blob/main/src/api_server/swagger/firecracker.yaml
 [rik]: https://github.com/rik-org/rik
-[firepilot-examples]: https://github.com/rik-org/firepilot/tree/main/examples
+[firepilot-examples]: https://github.com/rik-org/firepilot/tree/main/firepilot/examples
