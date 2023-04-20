@@ -313,7 +313,7 @@ impl Executor {
 
 /// Implementation of Executor for Firecracker, it will spawn the microVM using
 /// firecracker binary
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FirecrackerExecutor {
     /// Path to a folder where all files related to the microVM will be stored,
     /// it is used by higher level abstractions to store drives, kernel, etc...
