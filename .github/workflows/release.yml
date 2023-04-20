@@ -34,3 +34,11 @@ jobs:
 
       - name: Build
         run: cargo build --all-targets --release 
+
+      - name: Apply current tag to Cargo.toml
+        run: sed -i "s/^version = \"[0-9]*\.[0-9]*\.[0-9]*\"/version = \"$RELEASE_TAG\"/g" firepilot/Cargo.toml
+
+      - name: Publish to Crates.io
+        env:
+          CRATES_IO_TOKEN: ${{ secrets.CRATES_IO_API_KEY }}
+        run: cargo publish --token $CRATES_IO_TOKEN -p firepilot

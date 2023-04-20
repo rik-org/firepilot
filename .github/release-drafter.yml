@@ -29,6 +29,9 @@ categories:
       - 'chore'
       - 'ci'
       - 'docs'
+  - title: 'Dependencies updates'
+    labels:
+      - 'deps'
 
 exclude-labels:
  - 'skip'
@@ -38,6 +41,9 @@ autolabeler:
     title:
       - '/.*(\[fix\]|fix\(.*\)).*/'
       - '/.*(\[ci\]|ci\(.*\)).*/'
+  - label: 'deps'
+    title:
+      - '/.*chore\(deps\):.*/'
   - label: 'patch'
     title:
       - '/.*(\[fix\]|fix\(.*\):).*/'
