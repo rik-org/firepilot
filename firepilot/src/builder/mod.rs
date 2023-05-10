@@ -70,7 +70,7 @@ pub enum BuilderError {
     /// The field is required but was not provided in the builder object
     MissingRequiredField(String),
     /// Happens when using auto methods to detect firecracker /jailer binary
-    BinaryNotFound,
+    BinaryNotFound(String),
 }
 
 /// Generic trait which all builder componenet must implement in order to be
