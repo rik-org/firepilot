@@ -35,6 +35,8 @@ use crate::{
     executor::{Action, Executor},
 };
 
+use firepilot_models::models::vm::{State, Vm};
+
 #[derive(Debug)]
 pub enum FirepilotError {
     /// Mostly problems related to directories error or unavailable files
@@ -149,6 +151,18 @@ impl Machine {
     /// Send a CtrlAltDel signal so it will shutdown gracefully
     pub async fn stop(&self) -> Result<(), FirepilotError> {
         self.executor.send_action(Action::SendCtrlAltDel).await?;
+        Ok(())
+    }
+
+    /// Pause a running VM
+    pub async fn pause(&self) -> Result<(), FirepilotError> {
+        self.executor.set_vm_state(Vm::new(State::Paused)).await?;
+        Ok(())
+    }
+
+    /// Resume a paused VM
+    pub async fn resume(&self) -> Result<(), FirepilotError> {
+        self.executor.set_vm_state(Vm::new(State::Resumed)).await?;
         Ok(())
     }
 }
