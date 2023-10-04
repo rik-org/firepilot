@@ -158,11 +158,16 @@ impl Executor {
     }
 
     #[instrument(skip_all, fields(id = %self.id))]
-    async fn send_request(&self, url: hyper::Uri, body: String) -> Result<(), ExecuteError> {
+    async fn send_request(
+        &self,
+        url: hyper::Uri,
+        method: Method,
+        body: String,
+    ) -> Result<(), ExecuteError> {
         debug!("Send request to socket: {}", url);
         trace!("Sent body to socket [{}]: {}", url, body);
         let request = Request::builder()
-            .method(Method::PUT)
+            .method(method)
             .uri(url.clone())
             .header("Content-Type", "application/json")
             .header("Accept", "application/json")
@@ -204,7 +209,7 @@ impl Executor {
         let json = serde_json::to_string(&action).map_err(ExecuteError::Serialize)?;
 
         let url: hyper::Uri = Uri::new(self.chroot().join("firecracker.socket"), "/actions").into();
-        self.send_request(url, json).await?;
+        self.send_request(url, Method::PUT, json).await?;
         Ok(())
     }
 
@@ -261,7 +266,7 @@ impl Executor {
 
         let url: hyper::Uri =
             Uri::new(self.chroot().join("firecracker.socket"), "/boot-source").into();
-        self.send_request(url, json).await?;
+        self.send_request(url, Method::PUT, json).await?;
         Ok(())
     }
 
@@ -276,7 +281,7 @@ impl Executor {
 
             let path = format!("/drives/{}", drive.drive_id);
             let url: hyper::Uri = Uri::new(self.chroot().join("firecracker.socket"), &path).into();
-            self.send_request(url, json).await?;
+            self.send_request(url, Method::PUT, json).await?;
         }
         Ok(())
     }
@@ -296,7 +301,7 @@ impl Executor {
 
             let path = format!("/network-interfaces/{}", network_interface.iface_id);
             let url: hyper::Uri = Uri::new(self.chroot().join("firecracker.socket"), &path).into();
-            self.send_request(url, json).await?;
+            self.send_request(url, Method::PUT, json).await?;
         }
         Ok(())
     }
