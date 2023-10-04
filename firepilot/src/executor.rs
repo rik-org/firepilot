@@ -26,6 +26,7 @@ use hyperlocal::{UnixClientExt, UnixConnector, Uri};
 use tracing::{debug, error, info, instrument, trace};
 
 use crate::machine::FirepilotError;
+use firepilot_models::models::vm::Vm;
 use firepilot_models::models::{BootSource, Drive, NetworkInterface};
 
 /// Interface to determine how to execute commands on the socket and where to do it
@@ -210,6 +211,17 @@ impl Executor {
 
         let url: hyper::Uri = Uri::new(self.chroot().join("firecracker.socket"), "/actions").into();
         self.send_request(url, Method::PUT, json).await?;
+        Ok(())
+    }
+
+    /// Sets the microVM the to the specified state
+    #[instrument(skip_all, fields(id = %self.id))]
+    pub async fn set_vm_state(&self, state: Vm) -> Result<(), ExecuteError> {
+        debug!("Change VM state: {:#?}", state);
+        let json = serde_json::to_string(&state).map_err(ExecuteError::Serialize)?;
+
+        let url: hyper::Uri = Uri::new(self.chroot().join("firecracker.socket"), "/vm").into();
+        self.send_request(url, Method::PATCH, json).await?;
         Ok(())
     }
 
