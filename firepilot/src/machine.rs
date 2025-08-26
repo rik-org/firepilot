@@ -133,6 +133,10 @@ impl Machine {
         self.executor.configure_drives(config.storage).await?;
         self.executor.configure_boot_source(kernel).await?;
         self.executor.configure_network(config.interfaces).await?;
+        if let Some(vsock) = config.vsock {
+            self.executor.configure_vsock(vsock).await?;
+        }
+
         Ok(())
     }
 
