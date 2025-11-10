@@ -51,17 +51,18 @@
 //! ```
 use crate::executor::Executor;
 
-use firepilot_models::models::{BootSource, Drive, NetworkInterface};
+use firepilot_models::models::{BootSource, Drive, NetworkInterface, Vsock};
 
 pub mod drive;
 pub mod executor;
 pub mod kernel;
 pub mod network_interface;
+pub mod vsock;
 
 fn assert_not_none<T>(key: &str, value: &Option<T>) -> Result<(), BuilderError> {
     match value {
         Some(_) => Ok(()),
-        None => return Err(BuilderError::MissingRequiredField(key.to_string())),
+        None => Err(BuilderError::MissingRequiredField(key.to_string())),
     }
 }
 
@@ -102,6 +103,7 @@ pub struct Configuration {
     pub kernel: Option<BootSource>,
     pub storage: Vec<Drive>,
     pub interfaces: Vec<NetworkInterface>,
+    pub vsock: Option<Vsock>,
 
     pub vm_id: String,
 }
@@ -113,6 +115,7 @@ impl Configuration {
             executor: None,
             storage: Vec::new(),
             interfaces: Vec::new(),
+            vsock: None,
             vm_id,
         }
     }
@@ -135,6 +138,11 @@ impl Configuration {
 
     pub fn with_interface(mut self, iface: NetworkInterface) -> Configuration {
         self.interfaces.push(iface);
+        self
+    }
+
+    pub fn with_vsock(mut self, vsock: Vsock) -> Configuration {
+        self.vsock = Some(vsock);
         self
     }
 }

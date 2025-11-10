@@ -27,7 +27,7 @@ use tracing::{debug, error, info, instrument, trace};
 
 use crate::machine::FirepilotError;
 use firepilot_models::models::vm::Vm;
-use firepilot_models::models::{BootSource, Drive, NetworkInterface};
+use firepilot_models::models::{BootSource, Drive, NetworkInterface, Vsock};
 
 /// Interface to determine how to execute commands on the socket and where to do it
 pub trait Execute {
@@ -61,7 +61,7 @@ impl From<ExecuteError> for FirepilotError {
     fn from(e: ExecuteError) -> FirepilotError {
         match e {
             ExecuteError::CommandExecution(e) => FirepilotError::Setup(e),
-            ExecuteError::Request(url, e) => FirepilotError::Configure(format!("{}: {}", url, e)),
+            ExecuteError::Request(url, e) => FirepilotError::Configure(format!("{url}: {e}")),
             ExecuteError::Serialize(e) => FirepilotError::Configure(e.to_string()),
             ExecuteError::Socket(e) => FirepilotError::Configure(e),
             ExecuteError::WorkspaceCreation(e) => FirepilotError::Setup(e),
@@ -102,6 +102,12 @@ pub struct Executor {
     id: String,
 }
 
+impl Default for Executor {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Executor {
     /// Create a new Executor with no implementation, and with id "default"
     pub fn new() -> Executor {
@@ -135,7 +141,7 @@ impl Executor {
     /// Return the configured executor, or panic if none is configured
     fn executor(&self) -> &dyn Execute {
         match &self.firecracker {
-            Some(firecracker) => return firecracker,
+            Some(firecracker) => firecracker,
             None => panic!("No executor found"),
         }
     }
@@ -195,8 +201,7 @@ impl Executor {
                 String::from_utf8(body.to_vec()).unwrap()
             );
             return Err(ExecuteError::CommandExecution(format!(
-                "Failed to send request to {}, status: {}",
-                url, status
+                "Failed to send request to {url}, status: {status}"
             )));
         }
 
@@ -315,6 +320,19 @@ impl Executor {
             let url: hyper::Uri = Uri::new(self.chroot().join("firecracker.socket"), &path).into();
             self.send_request(url, Method::PUT, json).await?;
         }
+        Ok(())
+    }
+
+    /// Apply vsock configuration on the VM
+    #[instrument(skip_all, fields(id = %self.id))]
+    pub async fn configure_vsock(&self, vsock: Vsock) -> Result<(), ExecuteError> {
+        debug!("Configure vsock");
+        let json = serde_json::to_string(&vsock).map_err(ExecuteError::Serialize)?;
+
+        let path = "/vsock";
+        let url: hyper::Uri = Uri::new(self.chroot().join("firecracker.socket"), path).into();
+        self.send_request(url, Method::PUT, json).await?;
+
         Ok(())
     }
 
